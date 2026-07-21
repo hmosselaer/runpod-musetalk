@@ -14,6 +14,10 @@ Output:
 import runpod
 import base64, os, glob, tempfile, subprocess, shutil
 
+# hf_transfer 403s ("no permits available") on this repo's Xet CDN bridge, which
+# crash-loops the weight download. Force plain HTTP download instead.
+os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
+
 APP = "/app"
 
 

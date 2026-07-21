@@ -7,7 +7,9 @@
 # almost certainly one of those two.
 FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 
-ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 HF_HUB_ENABLE_HF_TRANSFER=1
+# NOTE: HF_HUB_ENABLE_HF_TRANSFER is intentionally NOT set — hf_transfer 403s on
+# this repo's Xet CDN bridge. handler.py forces it to 0 so downloads use plain HTTP.
+ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3.10 python3-pip python3.10-dev \
