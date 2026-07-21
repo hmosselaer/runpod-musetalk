@@ -40,6 +40,12 @@ RUN pip install --no-cache-dir -U openmim \
 # preferring a mounted network volume (/runpod-volume) so they persist.
 
 RUN pip install --no-cache-dir runpod
+
+# transformers 4.39.2 / tokenizers 0.15.2 require huggingface_hub<1.0. Pin it as
+# the final step so nothing above leaves a >=1.0 version in the image. (handler.py
+# also re-pins at runtime, since MuseTalk's weight download re-upgrades it.)
+RUN pip install --no-cache-dir "huggingface_hub==0.30.2"
+
 COPY handler.py /app/handler.py
 
 CMD ["python", "-u", "handler.py"]

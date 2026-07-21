@@ -42,6 +42,11 @@ def ensure_weights():
     print("downloading MuseTalk weights to %s (first boot)..." % target, flush=True)
     subprocess.run("sh download_weights.sh || bash download_weights.sh || python download_weights.py",
                    shell=True, cwd=APP)
+    # MuseTalk's download script runs `pip install -U huggingface_hub[cli]`, which
+    # pulls hub >=1.0 and breaks transformers 4.39.2 (requires <1.0) at inference.
+    # Force it back to the compatible version the image was built with.
+    print("re-pinning huggingface_hub to 0.30.2 (transformers needs <1.0)...", flush=True)
+    subprocess.run("pip install --no-cache-dir 'huggingface_hub==0.30.2'", shell=True)
 
 
 def _write_b64(b64, path):
