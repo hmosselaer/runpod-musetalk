@@ -1,0 +1,7 @@
+# Force LF line endings so the Docker build works on RunPod's Linux builders
+* text=auto eol=lf
+*.py   text eol=lf
+*.sh   text eol=lf
+Dockerfile text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
