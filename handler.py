@@ -36,17 +36,53 @@ def ensure_weights():
                 shutil.rmtree(app_models, ignore_errors=True)
             os.symlink(target, app_models)
     marker = os.path.join(target, "musetalkV15", "unet.pth")
-    if os.path.exists(marker):
+    if os.path.exists(marker) and os.path.exists(os.path.join(target, "dwpose", "dw-ll_ucoco_384.pth")):
         print("weights present at %s" % target, flush=True)
         return
+    # We download every weight ourselves rather than run MuseTalk's
+    # download_weights.sh: that script upgrades huggingface_hub to >=1.0 (which
+    # removes the `huggingface-cli download` command it relies on) AND uses the
+    # obsolete `gdown --id` flag, so most weights silently fail to download.
     print("downloading MuseTalk weights to %s (first boot)..." % target, flush=True)
-    subprocess.run("sh download_weights.sh || bash download_weights.sh || python download_weights.py",
-                   shell=True, cwd=APP)
-    # MuseTalk's download script runs `pip install -U huggingface_hub[cli]`, which
-    # pulls hub >=1.0 and breaks transformers 4.39.2 (requires <1.0) at inference.
-    # Force it back to the compatible version the image was built with.
-    print("re-pinning huggingface_hub to 0.30.2 (transformers needs <1.0)...", flush=True)
-    subprocess.run("pip install --no-cache-dir 'huggingface_hub==0.30.2'", shell=True)
+    _download_weights(target)
+
+
+def _download_weights(models):
+    from huggingface_hub import snapshot_download, hf_hub_download
+    import urllib.request
+
+    def hf_snap(repo, sub, patterns=None):
+        dst = os.path.join(models, sub)
+        os.makedirs(dst, exist_ok=True)
+        print("  hf snapshot %s -> %s" % (repo, dst), flush=True)
+        snapshot_download(repo_id=repo, local_dir=dst, allow_patterns=patterns,
+                          local_dir_use_symlinks=False)
+
+    # MuseTalk V1.5 UNet + config  (models/musetalkV15/unet.pth, musetalk.json)
+    print("  hf snapshot TMElyralab/MuseTalk (musetalkV15) -> %s" % models, flush=True)
+    snapshot_download(repo_id="TMElyralab/MuseTalk", local_dir=models,
+                      allow_patterns=["musetalkV15/*"], local_dir_use_symlinks=False)
+    # SD-VAE, Whisper
+    hf_snap("stabilityai/sd-vae-ft-mse", "sd-vae",
+            ["config.json", "diffusion_pytorch_model.bin", "diffusion_pytorch_model.safetensors"])
+    hf_snap("openai/whisper-tiny", "whisper")
+    # DWPose single checkpoint
+    dw = os.path.join(models, "dwpose"); os.makedirs(dw, exist_ok=True)
+    print("  hf file yzd-v/DWPose/dw-ll_ucoco_384.pth", flush=True)
+    hf_hub_download(repo_id="yzd-v/DWPose", filename="dw-ll_ucoco_384.pth",
+                    local_dir=dw, local_dir_use_symlinks=False)
+    # Face-parse BiSeNet: resnet18 (pytorch.org) + 79999_iter.pth (Google Drive)
+    fp = os.path.join(models, "face-parse-bisent"); os.makedirs(fp, exist_ok=True)
+    r18 = os.path.join(fp, "resnet18-5c106cde.pth")
+    if not os.path.exists(r18):
+        print("  urllib resnet18-5c106cde.pth", flush=True)
+        urllib.request.urlretrieve("https://download.pytorch.org/models/resnet18-5c106cde.pth", r18)
+    fi = os.path.join(fp, "79999_iter.pth")
+    if not os.path.exists(fi):
+        print("  gdown 79999_iter.pth (Google Drive)", flush=True)
+        import gdown
+        gdown.download(id="154JgKpzCPW82qINcVieuPH3fZ2e0P812", output=fi, quiet=False)
+    print("all weights downloaded.", flush=True)
 
 
 def _write_b64(b64, path):
