@@ -12,9 +12,36 @@ Output:
     or { "error": "...", "log": "..." } on failure.
 """
 import runpod
-import base64, os, glob, tempfile, subprocess
+import base64, os, glob, tempfile, subprocess, shutil
 
 APP = "/app"
+
+
+def ensure_weights():
+    """Download MuseTalk weights on first boot (kept out of the image to keep it
+    small so RunPod provisions workers fast). If a network volume is mounted at
+    /runpod-volume, weights go there and persist across cold starts; otherwise
+    they download to the worker's local disk."""
+    target = "/runpod-volume/models" if os.path.isdir("/runpod-volume") else os.path.join(APP, "models")
+    app_models = os.path.join(APP, "models")
+    # point /app/models at the target (MuseTalk's scripts expect ./models)
+    if os.path.abspath(target) != os.path.abspath(app_models):
+        os.makedirs(target, exist_ok=True)
+        if not os.path.islink(app_models):
+            if os.path.isdir(app_models):
+                for name in os.listdir(app_models):
+                    dst = os.path.join(target, name)
+                    if not os.path.exists(dst):
+                        shutil.move(os.path.join(app_models, name), dst)
+                shutil.rmtree(app_models, ignore_errors=True)
+            os.symlink(target, app_models)
+    marker = os.path.join(target, "musetalkV15", "unet.pth")
+    if os.path.exists(marker):
+        print("weights present at %s" % target, flush=True)
+        return
+    print("downloading MuseTalk weights to %s (first boot)..." % target, flush=True)
+    subprocess.run("sh download_weights.sh || bash download_weights.sh || python download_weights.py",
+                   shell=True, cwd=APP)
 
 
 def _write_b64(b64, path):
@@ -70,4 +97,5 @@ def handler(job):
         return {"video": base64.b64encode(f.read()).decode("ascii")}
 
 
+ensure_weights()
 runpod.serverless.start({"handler": handler})

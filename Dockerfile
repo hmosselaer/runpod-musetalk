@@ -35,10 +35,9 @@ RUN pip install --no-cache-dir "numpy<2" Cython setuptools wheel \
 RUN pip install --no-cache-dir -U openmim \
     && mim install "mmengine" "mmcv==2.0.1" "mmdet==3.1.0" "mmpose==1.1.0"
 
-# ── fiddly step 2: model weights (~several GB into ./models) ────────────────
-# MuseTalk ships a download script; name varies by version, so try both.
-RUN (sh ./download_weights.sh || bash ./download_weights.sh || python download_weights.py) \
-    && ls -la models
+# NOTE: model weights are NOT baked into the image (that made it too large to
+# provision on RunPod serverless). handler.py downloads them on first boot,
+# preferring a mounted network volume (/runpod-volume) so they persist.
 
 RUN pip install --no-cache-dir runpod
 COPY handler.py /app/handler.py
