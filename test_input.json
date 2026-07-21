@@ -1,0 +1,7 @@
+{
+  "input": {
+    "video_base64": "<base64 of a short mp4 with a face>",
+    "audio_base64": "<base64 of a wav/mp3 voiceover>",
+    "bbox_shift": 0
+  }
+}
