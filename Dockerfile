@@ -27,6 +27,11 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir "huggingface_hub[cli]" hf_transfer
 
 # ── fiddly step 1: OpenMMLab stack (version-locked) ─────────────────────────
+# chumpy (pulled in by mmpose) can't build under pip's build isolation — its
+# setup.py imports numpy at build time. Install it first with --no-build-isolation
+# against a present numpy<2 (mmcv 2.0.1 also needs numpy<2).
+RUN pip install --no-cache-dir "numpy<2" Cython setuptools wheel \
+    && pip install --no-cache-dir chumpy==0.70 --no-build-isolation
 RUN pip install --no-cache-dir -U openmim \
     && mim install "mmengine" "mmcv==2.0.1" "mmdet==3.1.0" "mmpose==1.1.0"
 
